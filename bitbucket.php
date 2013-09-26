@@ -14,15 +14,17 @@ require_once 'deploy-config.php';
  */
 class BitBucket_Deploy extends Deploy {
 	/**
-	 * Decodes and validates the data from bitbucket and calls the 
+	 * Decodes and validates the data from bitbucket and calls the
 	 * doploy contructor to deoploy the new code.
 	 *
 	 * @param 	string 	$payload 	The JSON encoded payload data.
 	 */
 	function __construct( $payload ) {
 		$payload = json_decode( stripslashes( $_POST['payload'] ), true );
+		$this->log( 'Payload received from BitBucket: ' . print_r( $payload, true ) );
 		$name = $payload['repository']['slug'];
-		$this->log( $payload['commits'][0]['branch'] );
+		$this->log( 'Branch of 1st commit: ' . $payload['commits'][0]['branch'] );
+		$this->log( 'Matched repo config (' . $name . '): ' . print_r(parent::$repos[$name], true) );
 		if ( isset( parent::$repos[ $name ] ) && parent::$repos[ $name ]['branch'] === $payload['commits'][0]['branch'] ) {
 			$data = parent::$repos[ $name ];
 			$data['commit'] = $payload['commits'][0]['node'];

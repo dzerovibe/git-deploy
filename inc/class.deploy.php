@@ -128,7 +128,11 @@ abstract class Deploy {
 	 * @param 	array 	$repo 	The repository info. See class block for docs.
 	 */
 	protected function __construct( $name, $repo ) {
+		$this->log( '$name: ' . $name );
+		$this->log( '$repo: ' . print_r( $repo, true ) );
+
 		$this->_path = realpath( $repo['path'] ) . DIRECTORY_SEPARATOR;
+		$this->log( '$this->_path: ' . $this->_path );
 
 		$this->_name = $name;
 
@@ -178,9 +182,11 @@ abstract class Deploy {
 
 			// Discard any changes to tracked files since our last deploy
 			exec( 'git reset --hard HEAD', $output );
+			$this->log( 'git reset --hard HEAD: ' . $output );
 
 			// Update the local repository
 			exec( 'git pull ' . $this->_remote . ' ' . $this->_branch, $output );
+			$this->log( 'git pull ' . $this->_remote . ' ' . $this->_branch . ': ' . $output );
 
 			// Secure the .git directory
 			echo exec( 'chmod -R og-rx .git' );
