@@ -1,7 +1,7 @@
 <?php
 // Make sure we have a payload, stop if we do not.
-// if( ! isset( $_POST['payload'] ) )
-  // die( '<h1>No payload present</h1><p>A BitBucket POST payload is required to deploy from this script.</p>' );
+if( ! isset( $_POST['payload'] ) )
+  die( '<h1>No payload present</h1><p>A BitBucket POST payload is required to deploy from this script.</p>' );
 
 /**
  * Tell the script this is an active end point.
@@ -9,83 +9,6 @@
 define( 'ACTIVE_DEPLOY_ENDPOINT', true );
 
 require_once 'deploy-config.php';
-
-$payload = array(
-  'repository' => Array
-  (
-    'website' => NULL,
-    'fork' => NULL,
-    'name' => 'HopeNet - Main',
-    'scm' => 'git',
-    'owner' => 'jason_lane',
-    'absolute_url' => '/jason_lane/hopenet-main/',
-    'slug' => 'hopenet-main',
-    'is_private' => '1'
-  ),
-  'truncated' => NULL,
-  'commits' => Array(
-    '0' => Array(
-      'node' => '4d21b30e9402',
-      'files' => Array(),
-      'branch' => 'master',
-      'utctimestamp' => '2013-09-27 04:43:07+00:00',
-      'timestamp' => '2013-09-27 06:43:07',
-      'raw_node' => '4d21b30e940277410fcb9c82b4dfc6e4578719fa',
-      'message' => 'Merge branch \'develop\'',
-      'size' => '-1',
-      'author' => 'kakaiba',
-      'parents' => Array
-      (
-        '0' => '53e6539e2c62',
-        '1' => 'ba42d5e5421f'
-      ),
-      'raw_author' => 'Maris Reyes <kakaiba@gmail.com>',
-      'revision' => NULL
-    ),
-    '1' => Array(
-      'node' => '4d21b30e9402',
-      'files' => Array(),
-      'branch' => 'dzv',
-      'utctimestamp' => '2013-09-27 04:43:07+00:00',
-      'timestamp' => '2013-09-27 06:43:07',
-      'raw_node' => '4d21b30e940277410fcb9c82b4dfc6e4578719fa',
-      'message' => 'Did something',
-      'size' => '-1',
-      'author' => 'kakaiba',
-      'parents' => Array
-      (
-        '0' => '53e6539e2c62',
-        '1' => 'ba42d5e5421f'
-      ),
-
-      'raw_author' => 'Maris Reyes <kakaiba@gmail.com>',
-      'revision' => NULL
-    ),
-    '2' => Array(
-      'node' => '4d21b30e9402',
-      'files' => Array(),
-      'branch' => 'master',
-      'utctimestamp' => '2013-09-27 04:43:07+00:00',
-      'timestamp' => '2013-09-27 06:43:07',
-      'raw_node' => '4d21b30e940277410fcb9c82b4dfc6e4578719fa',
-      'message' => 'Did something',
-      'size' => '-1',
-      'author' => 'kakaiba',
-      'parents' => Array
-      (
-        '0' => '53e6539e2c62',
-        '1' => 'ba42d5e5421f'
-      ),
-
-      'raw_author' => 'Maris Reyes <kakaiba@gmail.com>',
-      'revision' => NULL
-    )
-  ),
-
-  'canon_url' => 'https://bitbucket.org',
-  'user' => 'kakaiba'
-
-);
 
 /**
  * Deploys BitBucket git repos
@@ -98,7 +21,7 @@ class BitBucket_Deploy extends Deploy {
    * @param   string  $payload  The JSON encoded payload data.
    */
   function __construct( $payload ) {
-    // $payload = json_decode( stripslashes( $payload ), true );
+    $payload = json_decode( stripslashes( $payload ), true );
 
     $repo_name = $payload['repository']['slug'];
 
@@ -132,7 +55,4 @@ class BitBucket_Deploy extends Deploy {
   }
 }
 // Start the deploy attempt.
-echo '<pre>'. "\n";
-$_POST['payload'] = $payload;
 new BitBucket_Deploy( $_POST['payload'] );
-echo "\n" . '</pre>';
