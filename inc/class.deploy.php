@@ -9,8 +9,8 @@ if( ! defined( 'ACTIVE_DEPLOY_ENDPOINT' ) || true !== ACTIVE_DEPLOY_ENDPOINT )
  * parse whatever post payload and pass it to parent::construct(). The data passed should
  * be an array that is in the following order (note this is right in line with how the
  * config arrays are put together).
- * 'repo name' => array(
- * 		'name'   => 'repo name', // Required
+ * 'deployment name' => array(
+ * 		'repo'   => 'repo name', // Required
  * 		'path' 	 => '/path/to/local/repo/' // Required
  * 		'branch' => 'the_desired_deploy_branch', // Required
  * 		'commit' => 'the SHA of the commit', // Optional. The SHA is only used in logging.
@@ -25,12 +25,12 @@ if( ! defined( 'ACTIVE_DEPLOY_ENDPOINT' ) || true !== ACTIVE_DEPLOY_ENDPOINT )
 
 abstract class Deploy {
 	/**
-	 * Registered deploy repos
+	 * Registered deployments
 	 */
-	protected static $repos = array();
+	protected static $deployments = array();
 
 	/**
-	 * The name of the file that will be used for logging deployments. Set 
+	 * The name of the file that will be used for logging deployments. Set
 	 * to false to disable logging.
 	 */
 	private static $_log_name = 'deployments.log';
@@ -42,27 +42,29 @@ abstract class Deploy {
 
 	/**
 	 * The timestamp format used for logging.
-	 * 
+	 *
 	 * @link    http://www.php.net/manual/en/function.date.php
 	 */
 	private static $_date_format = 'Y-m-d H:i:sP';
-	
+
+
 	/**
-	 * Registers available repos for deployement
+	 * Registers available deployements
 	 *
-	 * @param array $repo The repo information and the path information for deployment
+	 * @param string name The name of the deployment
+	 * @param array deployment The deployment information and the path information for deployment
 	 * @return bool True on success, false on failure.
 	 */
-	public static function register_repo( $name, $repo ) {
+	public static function register_deployment( $name, $deployment ) {
 		if ( ! is_string( $name ) )
 			return false;
 
-		if ( ! is_array( $repo ) )
+		if ( ! is_array( $deployment ) )
 			return false;
-		
-		$required_keys = array( 'path', 'branch' );
+
+		$required_keys = array( 'repo', 'path', 'branch' );
 		foreach ( $required_keys as $key ) {
-			if ( ! array_key_exists( $key, $repo ) )
+			if ( ! array_key_exists( $key, $deployment ) )
 				return false;
 		}
 
@@ -71,9 +73,9 @@ abstract class Deploy {
 			'post_deploy' => '',
 			'commit'      => '',
 		);
-		$repo = array_merge( $defaults, $repo );
+		$deployment = array_merge( $defaults, $deployment );
 
-		self::$repos[ $name ] = $repo;
+		self::$deployments[ $name ] = $deployment;
 	}
 
 	/**
@@ -92,7 +94,7 @@ abstract class Deploy {
 	private $_deploy_ready;
 
 	/**
-	 * The name of the repo we are attempting deployment for.
+	 * The name of the deployment we are attempting deployment for.
 	 */
 	private $_name;
 
@@ -107,7 +109,7 @@ abstract class Deploy {
 	private $_remote;
 
 	/**
-	 * The path to where your website and git repository are located, can be 
+	 * The path to where your website and git repository are located, can be
 	 * a relative or absolute path
 	 */
 	private $_path;
@@ -123,22 +125,27 @@ abstract class Deploy {
 	private $_commit;
 
 	/**
-	 * Sets up the repo information.
-	 * 
-	 * @param 	array 	$repo 	The repository info. See class block for docs.
+	 * Sets up the deployment information.
+	 *
+	 * @param 	array 	$deployment 	The deployment info. See class block for docs.
 	 */
-	protected function __construct( $name, $repo ) {
-		$this->log( '$name: ' . $name );
-		$this->log( '$repo: ' . print_r( $repo, true ) );
+	protected function __construct( $name, $deployment ) {
+		$this->log( '== Attempting to deploy "' . $name . '" ===' );
 
-		$this->_path = realpath( $repo['path'] ) . DIRECTORY_SEPARATOR;
-		$this->log( '$this->_path: ' . $this->_path );
+		$path = realpath( $deployment['path'] );
+		if ( ! $path ) {
+			// Invalid path
+			$this->log( 'Invalid path configured for "' . $name . '" deployment', 'ERROR' );
+			return false;
+		} else {
+			$this->_path = $path . DIRECTORY_SEPARATOR;
+		}
 
 		$this->_name = $name;
 
-		$available_options = array( 'branch', 'remote', 'commit', 'post_deploy' );
+		$available_options = array( 'branch', 'remote', 'post_deploy' );
 
-		foreach ( $repo as $option => $value ){
+		foreach ( $deployment as $option => $value ){
 			if ( in_array( $option, $available_options ) ){
 				$this->{'_'.$option} = $value;
 			}
@@ -149,11 +156,18 @@ abstract class Deploy {
 
 	/**
 	 * Writes a message to the log file.
-	 * 
+	 *
 	 * @param 	string 	$message 	The message to write
 	 * @param 	string 	$type 		The type of log message (e.g. INFO, DEBUG, ERROR, etc.)
 	 */
 	protected function log( $message, $type = 'INFO' ) {
+
+		global $debug_logging;
+		if ( 'DEBUG' == $type && ! $debug_logging )
+			return;
+
+		echo date( self::$_date_format ) . ' --- ' . $type . ': ' . $message . "\n";
+
 		if ( self::$_log_name ) {
 			// Set the name of the log file
 			$filename = self::$_log_path . '/' . rtrim( self::$_log_name, '/' );
@@ -173,33 +187,62 @@ abstract class Deploy {
 	}
 
 	/**
+	 * Execute an external command with logging
+	 *
+	 * @param		string	$command
+	 */
+	private function execute_command( $command ) {
+		$this->log( 'Executing \'' . $command . "'", 'DEBUG' );
+
+		exec( $command . ' 2>&1', $output, $return_var );
+
+		if ( 0 != $return_var ) {
+			$log_level = 'ERROR';
+			$this->log( 'Error executing command: \'' . $command . "'", $log_level );
+		} else {
+			$log_level = 'DEBUG';
+		}
+
+		foreach ( $output as $key => $value ) {
+			$this->log( $value, $log_level );
+		}
+
+		if ( 0 != $return_var ) {
+			throw new Exception( 'Error running the command. Status code: ' . $return_var );
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	* Executes the necessary commands to deploy the code.
 	*/
 	private function execute() {
 		try {
 			// Make sure we're in the right directory
+			$this->log( 'Changing working directory to ' . $this->_path, 'DEBUG' );
 			chdir( $this->_path);
 
 			// Discard any changes to tracked files since our last deploy
-			exec( 'git reset --hard HEAD', $output );
-			$this->log( 'git reset --hard HEAD: ' . $output );
+			self::execute_command( 'git reset --hard HEAD' );
 
 			// Update the local repository
-			exec( 'git pull ' . $this->_remote . ' ' . $this->_branch, $output );
-			$this->log( 'git pull ' . $this->_remote . ' ' . $this->_branch . ': ' . $output );
+			self::execute_command( 'git pull ' . $this->_remote . ' ' . $this->_branch );
 
 			// Secure the .git directory
-			echo exec( 'chmod -R og-rx .git' );
+			self::execute_command( 'chmod -R og-rx .git' );
 
 			if ( is_callable( $this->_post_deploy ) )
 				call_user_func( $this->_post_deploy );
 
-			$this->log( '[SHA: ' . $this->_commit . '] Deployment of ' . $this->_name . ' from branch ' . $this->_branch . ' successful' );
+			$this->log( 'Deployment of "' . $this->_name . '" succesful' );
 		} catch ( Exception $e ) {
 			$this->log( $e, 'ERROR' );
 		}
 	}
 }
-// Registers all of our repos with the Deploy class
-foreach ( $repos as $name => $repo )
-	Deploy::register_repo( $name, $repo );
+
+// Registers all of our deployments with the Deploy class
+foreach ( $deployments as $name => $deployment )
+	Deploy::register_deployment( $name, $deployment );
