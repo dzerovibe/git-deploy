@@ -166,8 +166,6 @@ abstract class Deploy {
 		if ( 'DEBUG' == $type && ! $debug_logging )
 			return;
 
-		echo date( self::$_date_format ) . ' --- ' . $type . ': ' . $message . "\n";
-
 		if ( self::$_log_name ) {
 			// Set the name of the log file
 			$filename = self::$_log_path . '/' . rtrim( self::$_log_name, '/' );
